@@ -354,6 +354,10 @@ app.post("/webhook/mercadopago", async (req, res) => {
 });
 
 
+app.get("/", function (req, res) {
+  res.send("el servidor de estaciona chivilcoy funciona!");
+});
+
 app.listen(PORT, () => {
   console.log("API running at ", PORT);
 });
