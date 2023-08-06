@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
     "engines": {
-      "node": "14.x"
+      "node": "18.x"
     },
   "scripts": {
     "dev:server": "nodemon --watch ./server/index.ts --exec ts-node ./server/index.ts",
