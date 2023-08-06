@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "estaciona-chivilcoy-37816",
+  "private_key_id": "c8c9ba6f61cef42e03ab98e0c24759d46ce2447a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCmvNu8LfQc8GKu\nEy20ceULRkBdL25ZZrlspIzmRZm7NVnc3nxS6v3AmQrzRt+A6zgec5Uw7RX8W4Rf\nkNmltzSMJ00+hmqPTuDcrL8JEVKxitS/DSeXLt9xVGsDt7kNBxZgjefqryOtqy5N\ndOBj++0EkaQ2kj3tgjiB1PUvWxoF5rH1ZQtIJdftlX4rkn2P3WO42yN1G2UNkAMR\nzP67ehWtcsz7Kv95sM1pO5jWCB4LigdQwEugzlKPNHtqIQZzYDsj5yFHZThFlH3A\nRevLlaFVBH1ciS4wHq3SYvfhSWelP7M2Z+h+Ry1HI9LAiONdoVmOPzIOKpsSRykz\nkXiPx/hhAgMBAAECggEANs2HOYwvGp3mCUoTcSYoPrLp79bpoafSVUOmbf89XptT\n/HUCDuze14FV6I0IZCKr0NJznF+opMfds91zs/SJ6HD4gg8DEjQ+UznSFmRjtign\n8d2cgCPvXBv/inrF72K/d5/ctLW499l2QA4kvKguiJxoCWm6wghVk1LP/a8nV/2p\n+bgc5uvYmPRt3a7bt0hzzD+OHVyZYmAbEiMZLDdrw7GXISmQNweu+S1mOjGNpxjh\nCGF0q9Lnd0EPJT1GkShzzi6Sq9lgWNH2HW38tX8gVKBYBYF9fef8Ln3hVEsAK6OT\nT1I1ntaaUpjpOTVJTl+lIVZRnQPV9hJOG8hL0G3lcwKBgQDQYAi4XBOt+FjWRtbA\n+mfuYRvrTyhXr8GEY0JH9UdGNliWgU/I09nnxny+RehY9Ae1ItZKhX58d3YUq5bz\nfpoCCApaJ31sPY6lvX9l20RlHw01VaVKtuIlX/fY9ZYfIkalwLexTPvt23u6kPRP\nrbhL8Br+SgeLNvc1Be2FtQuBLwKBgQDM2KHe/9yeHswKIthx8OQSvu5CmgqfU8tB\nxr4onm/+FMhs1swlMDBscDa5DaPNtlonzsWqpJoL0jNmf0LDS2aeMQ3YWKjlPf42\n88ISHh9bjawRZrQf2r5ssNXn7DagUDR1U4mppYK8JyIcGC95es+DXta4ocRv5zGZ\nM2G+kMUbbwKBgFr+hPBVLTbca5bvClrtPrOHbpS8VYatNpmkas5Xmw9bLiZTQ88U\nTGT9dX31szgdILyGAQQ79XdPB56RK/MbBw/6CONDuW6qFv/jl52YOe7at37h7rOI\n14qwtN/mpu7jnexGEzF2x9Ef9pELOdUNrJxktrTzCQZPM3bRJt8rp2F7AoGBAKWd\nuDHNd5c3mwvO5GQquJsXVxbt6Ays+LZzcqbwgedQ8kJc36xpa50glH3FM1xMRFPO\n7y1p60oHZptF5Lp0qcDYNDNoaxT8rB3Nsmhnhj7FKgrfmF3wwuipiCf8aKXwcpkx\nMym/sRViJkfEng1/Z2r1MHESCPnYV9dfHXWvIk1tAoGBAKw3P+x3tOcyRqUvX0r7\nQmn/YlKkK64V9Oq54mxN/s1bOYz0jkQV9sEZZwE+VmwDJzxnqleoKmwA/dNrYamd\nZ1hqOqTug8DVWeQMuMq1Lr2Xx12ytPIaq8NL8FUhAKWPx1Ufyl7ay9vDd5LdiG3B\nB+F9GiF1pdB9wnEkjMC/rrHC\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-whv96@estaciona-chivilcoy-37816.iam.gserviceaccount.com",
+  "client_id": "106639392307854880052",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-whv96%40estaciona-chivilcoy-37816.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
