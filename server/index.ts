@@ -2,26 +2,30 @@ import { realtimeDB, firestoreDB } from "./db";
 import * as express from "express";
 import * as bodyParser from "body-parser";
 import { v4 as uuidv4 } from "uuid";
-import * as cors from "cors"
+import * as cors from "cors";
 import { getMerchantOrder } from "./db";
 
 const app = express();
 const PORT = 8080;
 
-const mercadopago = require("mercadopago");
 app.use(express.json());
-app.use(cors())
+app.use(cors());
 app.use(bodyParser.json());
-
+app.use((req, res, next) => {
+  res.setHeader(
+    "Access-Control-Allow-Origin",
+    "https://estaciona-chivilcoy-j9mv.onrender.com"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
+  next();
+});
 
 const platesCollectionRef = firestoreDB.collection("carPlate");
 
-mercadopago.configure({
-    access_token: "TEST-2039711323530302-072700-102a314cf2e5d98a9a91f5c25c49f643-1102603889",
-});
-
-
-function getExpiredCarIds(objetos) {
+async function getExpiredCarIds(objetos) {
   const currentDate = new Date();
 
   const expiredCarIds = Object.keys(objetos).filter((key) => {
@@ -32,19 +36,38 @@ function getExpiredCarIds(objetos) {
   console.log(expiredCarIds);
 
   if (expiredCarIds.length > 0) {
-    expiredCarIds.forEach((carId) => {
-      realtimeDB
-        .ref(`/parkedCars/${carId}`)
-        .remove()
-        .then(() => {
-          console.log(`Car with ID ${carId} removed from the database.`);
-        })
-        .catch((error) => {
-          console.error(
-            `Error removing car with ID ${carId}: ${error.message}`
-          );
+    for (const carId of expiredCarIds) {
+      const userId = objetos[carId].userId;
+      const realCarId = objetos[carId].carId;
+      const userCarIdRef = realtimeDB.ref("users/");
+
+      console.log("UserID: ", userId, "carId: ", realCarId);
+      try {
+        await realtimeDB
+          .ref(`/parkedCars/${carId}`)
+          .remove()
+          .then(() => {
+            console.log("Auto removido");
+          });
+        await userCarIdRef.get().then((currentSnap) => {
+          var csData = currentSnap.val();
+          console.log(csData);
+          if (csData[userId].cars[realCarId].isParked === true) {
+            csData[userId].cars[realCarId].isParked = false;
+            userCarIdRef.update(csData);
+            console.log(
+              "isParked del auto :",
+              csData[userId].cars[realCarId].name,
+              "Seteado a 'false'"
+            );
+          } else if (csData[userId].cars[realCarId].isParked === false) {
+            console.log("isParked ya es false, chequear funcionamiento");
+          }
         });
-    });
+      } catch (error) {
+        console.error("Error al actualizar el estado del auto:", error);
+      }
+    }
   }
 }
 
@@ -54,15 +77,64 @@ function getExpiredCarIds(objetos) {
     let data = snap.val();
     //Para que no aparezca el prueba: 1 que esta en al database
     delete data.prueba;
-
     const intervalId = setInterval(() => {
       getExpiredCarIds(data);
     }, 30000);
   });
-})(); 
+})();
 
-// Recibe Nombre y patente y devuelve un array de los autos
-// Recibe Nombre y patente y devuelve un array de los autos
+app.post("/addTime/:carId/:time", async (req, res) => {
+  // Recibe el carId para buscarlo en la RTDB, y al encontrarlo, extrae el expiration time y le agrega el tiempo agregado
+  const { carId, time } = req.params;
+
+  try {
+    // Convertir el tiempo recibido a minutos
+    const timeToAdd = parseInt(time);
+
+    // Obtener la referencia al objeto correspondiente en parkedCars
+    const parkedCarsRef = realtimeDB.ref("/parkedCars/");
+    const snapshot = await parkedCarsRef.once("value");
+    const parkedCarsData = snapshot.val();
+    console.log({ parkedCarsData });
+    if (parkedCarsData) {
+      // Buscar el objeto dentro de parkedCars que tenga el carId especificado
+      for (const parkedCarId in parkedCarsData) {
+        console.log({ parkedCarId });
+        if (
+          parkedCarsData.hasOwnProperty(parkedCarId) &&
+          parkedCarsData[parkedCarId].carId === carId
+        ) {
+          const currentExpirationTime = new Date(
+            parkedCarsData[parkedCarId].expirationTime
+          );
+
+          // Calcular el nuevo expirationTime sumando el tiempo en minutos
+          const newExpirationTime = new Date(
+            currentExpirationTime.getTime() + timeToAdd * 60000
+          );
+
+          // Formatear la fecha en el formato deseado
+          const formattedExpirationTime = newExpirationTime.toString();
+
+          // Actualizar la propiedad expirationTime en la base de datos
+          await parkedCarsRef.child(parkedCarId).update({
+            expirationTime: formattedExpirationTime,
+          });
+
+          res.status(200).send("Expiration time updated successfully.");
+          return; // Salir del bucle después de actualizar
+        }
+      }
+
+      res.status(404).send("Car ID not found in parkedCars.");
+    } else {
+      res.status(404).send("No cars found in parkedCars.");
+    }
+  } catch (error) {
+    console.error("Error updating expiration time:", error);
+    res.status(500).send("Internal server error.");
+  }
+});
 
 app.get("/getUserData/:userId", async (req, res) => {
   const { userId } = req.params;
@@ -74,7 +146,6 @@ app.get("/getUserData/:userId", async (req, res) => {
       const snapData = snap.val();
       const carsData = snapData.cars;
 
-      // Convert the object into an array with 'id' included in each car object
       const carsArray = await Promise.all(
         Object.keys(carsData).map(async (carId) => {
           const car = {
@@ -82,15 +153,12 @@ app.get("/getUserData/:userId", async (req, res) => {
             ...carsData[carId],
           };
 
-          // Fetch additional data from Firestore based on the plate property
           const plateDoc = await platesCollectionRef.doc(car.plate).get();
           if (plateDoc.exists) {
             const plateData = plateDoc.data();
             car.type = plateData.type;
             car.color = plateData.color;
             car.brand = plateData.brand;
-
-            // Add other properties from the plateData object as needed
           }
 
           return car;
@@ -114,79 +182,50 @@ app.get("/getUserData/:userId", async (req, res) => {
 //Cuando va a estacionar el auto, ingresa sus datos y luego se agregan a a "/Parkedcars"
 app.post("/parkCar", (req, res) => {
   const { coordinates, carId, userId, time, plate } = req.body;
-  // Crea una date nueva y le setea los minutos que recibió, para posteriormente guardarlos en la RTDB Como string
-  const currentTime = new Date();
-  const expirationTime = new Date(currentTime.getTime() + time * 60000);
+  if (!coordinates || !carId || !userId || !time || !plate) {
+    res.status(400).send({ message: "Faltan datos en el body" });
+  } else {
+    // Crea una date nueva y le setea los minutos que recibió, para posteriormente guardarlos en la RTDB Como string
+    const currentTime = new Date();
+    const expirationTime = new Date(currentTime.getTime() + time * 60000);
 
-  let carData;
-  //Trae todo de la RTDB
-  const rtdbData = realtimeDB.ref("/");
-  rtdbData
-    .get()
-    .then((snap) => {
-      const allData = snap.val();
-      //Busca la info del auto para guardarlas en el string declarado anteriormente
-      carData = allData.users[userId].cars[carId];
+    let carData;
+    //Trae todo de la RTDB
+    const rtdbData = realtimeDB.ref("/");
+    rtdbData
+      .get()
+      .then((snap) => {
+        const allData = snap.val();
+        //Busca la info del auto para guardarlas en el string declarado anteriormente
+        carData = allData.users[userId].cars[carId];
 
-      // Update the 'isParked' property to true in the user's car entry
-      realtimeDB.ref(`/users/${userId}/cars/${carId}`).update({
-        isParked: true,
-      });
+        // Update the 'isParked' property to true in the user's car entry
+        realtimeDB.ref(`/users/${userId}/cars/${carId}`).update({
+          isParked: true,
+        });
 
-      //Setea en "/parkedCars", los siguientes datos
-      return realtimeDB.ref("/parkedCars/" + uuidv4()).set({
-        carId: carId,
-        coordinates: coordinates,
-        userId: userId,
-        name: carData.name,
-        expirationTime: expirationTime.toString(),
-        plate: plate,
+        //Setea en "/parkedCars", los siguientes datos
+        return realtimeDB.ref("/parkedCars/" + uuidv4()).set({
+          carId: carId,
+          coordinates: coordinates,
+          userId: userId,
+          name: carData.name,
+          expirationTime: expirationTime.toString(),
+          plate: plate,
+        });
+      })
+      .then(() => {
+        res.json({
+          message: "Estacionado con éxito!",
+        });
+      })
+      .catch((error) => {
+        res.status(500).json({
+          error: "Error al estacionar el auto: " + error.message,
+        });
       });
-    })
-    .then(() => {
-      res.json({
-        message: "Estacionado con éxito!",
-      });
-    })
-    .catch((error) => {
-      res.status(500).json({
-        error: "Error al estacionar el auto: " + error.message,
-      });
-    });
+  }
 });
-/* app.post("/parkCar", (req, res) => {
-  const { coordinates, carId, userId, time, plate } = req.body;
-  // Crea una date nueva y le setea los minutos que recibió, para posteriormente guardarlos en la RTDB Como string
-  const currentTime = new Date();
-  const expirationTime = new Date(currentTime.getTime() + time * 60000);
-
-  let carData;
-  //Trae todo de la RTDB
-  const rtdbData = realtimeDB.ref("/");
-  rtdbData
-    .get()
-    .then((snap) => {
-      const allData = snap.val();
-      //Busca la info del auto para guardarlas en el string declarado anteriormente
-      carData = allData.users[userId].cars[carId];
-    })
-    .then(() => {
-      //Setea en "/parkedCars", los siguientes datos
-      realtimeDB.ref("/parkedCars/" + uuidv4()).set({
-        carId: carId,
-        coordinates: coordinates,
-        userId: userId,
-        name: carData.name,
-        expirationTime: expirationTime.toString(),
-        plate: plate,
-      });
-    })
-    .then(() => {
-      res.json({
-        message: "Estacionado con éxito!",
-      });
-    });
-}); */
 
 app.post("/createCar", (req, res) => {
   let randomId = uuidv4();
@@ -235,13 +274,13 @@ app.post("/createCar", (req, res) => {
               }
             })
             .then(() => {
-              console.log("Auto agregado")
+              console.log("Auto agregado");
               res.json({
                 message: "Auto agregado!",
               });
             });
         } else {
-          console.log("Pantente error")
+          console.log("Pantente error");
           res
             .status(401)
             .send({ message: "Numero de patente incorrecto o inexistente" });
@@ -250,46 +289,75 @@ app.post("/createCar", (req, res) => {
   }
 });
 
-app.get("/parkedCars/:userId/:isOfficer?", (req, res) => {
+app.get("/parkedCars/:userId/:isOfficer?", async (req, res) => {
   const { userId, isOfficer } = req.params;
   let isOfficerBoolean;
-  if (isOfficer == "false") {
+
+  if (isOfficer === "false") {
     isOfficerBoolean = false;
-  } else if (isOfficer == "true") {
+  } else if (isOfficer === "true") {
     isOfficerBoolean = true;
   }
-  console.log("/parkedCars recibió: ", req.params);
-  const parkedCarsRef = realtimeDB.ref("parkedCars/");
-  // Si isOfficer es true, devuelve todos los estacionados.
-  if (isOfficerBoolean === true) {
-    console.log("Officer true");
-    parkedCarsRef.get().then((snap) => {
-      if (snap.exists) {
-        const snapData = snap.val();
+
+  try {
+    console.log("/parkedCars recibió: ", req.params);
+
+    const parkedCarsRef = realtimeDB.ref("parkedCars/");
+    const snap = await parkedCarsRef.get();
+    const snapData = snap.val();
+
+    if (isOfficerBoolean === true) {
+      console.log("Officer true");
+      if (snap.exists()) {
         const objectsArray = Object.values(snapData);
-        res.json(objectsArray);
+
+        // Obtener datos adicionales de Firestore para cada placa
+        const enhancedDataPromises = objectsArray.map(async (data: any) => {
+          const plate = data.plate;
+          if (typeof plate === "string" && plate.trim() !== "") {
+            const plateDoc = await platesCollectionRef.doc(plate).get();
+            if (plateDoc.exists) {
+              const plateData = plateDoc.data();
+              return { ...data, ...plateData };
+            }
+          }
+          return data;
+        });
+
+        const enhancedData = await Promise.all(enhancedDataPromises);
+
+        res.json(enhancedData);
       } else {
         res.json({ message: "No hay ningún auto estacionado" });
       }
-    });
-  }
-  // Si es falso, devuelve solo el del userId
-  else if (isOfficerBoolean === false) {
-    console.log("Officer false");
-    parkedCarsRef.get().then((snap) => {
-      let snapData = snap.val();
-
-      const snapDataValues = Object.values(snapData);
-      const filteredData = snapDataValues.filter((data: any) => {
-        return data.userId === userId;
+    } else if (isOfficerBoolean === false) {
+      console.log("Officer false");
+      const filteredDataPromises = Object.keys(snapData).map(async (key) => {
+        const data = snapData[key];
+        if (typeof data === "object" && data.userId === userId) {
+          const plate = data.plate;
+          if (typeof plate === "string" && plate.trim() !== "") {
+            const plateDoc = await platesCollectionRef.doc(plate).get();
+            if (plateDoc.exists) {
+              const plateData = plateDoc.data();
+              return { ...data, ...plateData };
+            }
+          }
+        }
+        return null;
       });
-     /*  console.log({ filteredData }); */
-      res.json( filteredData );
-    });
+
+      const filteredData = (await Promise.all(filteredDataPromises)).filter(
+        (data) => data !== null
+      );
+
+      res.json(filteredData);
+    }
+  } catch (error) {
+    console.error("Error retrieving data:", error);
+    res.status(500).send("Internal server error.");
   }
 });
-
-
 app.delete("/deleteCar", (req, res) => {
   const { userId, carId } = req.body;
   console.log("/deleteCar recibió: ", req.body);
@@ -306,53 +374,32 @@ app.delete("/deleteCar", (req, res) => {
     .catch((error) => {
       console.error("Error al eliminar el auto:", error);
       res.status(500).send({ message: "Error al eliminar el auto" });
-    }); 
-});
-
-
-/* MERCADO PAGO */
-
-const parkedCars = [];
-
-app.post("/create_preference", (req, res) => {
-  let preference = {
-    items: [
-      {
-        title: req.body.description,
-        unit_price: Number(req.body.price),
-        quantity: Number(req.body.quantity),
-      },
-    ],
-        back_urls: {
-            success: "http://localhost:3000/parking",
-            failure: "http://localhost:3000/parking",
-            pending: "http://localhost:3000/parking"
-        },
-        notification_url:"http://localhost:8080/webhook/mercadopago",
-        auto_return: "approved",
-  };
-  mercadopago.preferences.create(preference)
-    .then(function (response) {
-      res.json({
-        id: response.body.id,
-      });
-    })
-    .catch(function (error) {
-      console.log(error);
     });
 });
 
-
-
+/* MERCADO PAGO */
+// Este webhook recibe 2 peticiones, la que se necesita para saber el
+// order_status es el que tiene el topic: "merchant_order" en el query
 app.post("/webhook/mercadopago", async (req, res) => {
   const { id, topic } = req.query;
-  if (topic == "merchant_order") {
-    const order = await getMerchantOrder(id);
-    console.log(order);
+  try {
+    console.log(
+      "SOY EL WEBHOOK/MERCADOPAGO ",
+      "req.body: ",
+      req.body,
+      "req.query: ",
+      req.query
+    );
+    if (topic == "merchant_order") {
+      const order = await getMerchantOrder(Number(id));
+      console.log({ order });
+      res.send("ok");
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal Server Error");
   }
-  res.status(200).send("ok");
 });
-
 
 app.get("/", function (req, res) {
   res.send("el servidor de estaciona chivilcoy funciona!");
