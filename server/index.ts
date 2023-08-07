@@ -393,7 +393,7 @@ app.post("/webhook/mercadopago", async (req, res) => {
     if (topic == "merchant_order") {
       const order = await getMerchantOrder(Number(id));
       console.log({ order });
-      res.send("ok");
+      res.send("ok",order);
     }
   } catch (err) {
     console.error(err);
