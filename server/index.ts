@@ -382,7 +382,6 @@ app.delete("/deleteCar", (req, res) => {
 // order_status es el que tiene el topic: "merchant_order" en el query
 app.post("/webhook/mercadopago", async (req, res) => {
   const { id, topic } = req.query;
-  try {
     console.log(
       "SOY EL WEBHOOK/MERCADOPAGO ",
       "req.body: ",
@@ -390,6 +389,7 @@ app.post("/webhook/mercadopago", async (req, res) => {
       "req.query: ",
       req.query
     );
+  try {
     if (topic == "merchant_order") {
       const order = await getMerchantOrder(Number(id));
       console.log({ order });
